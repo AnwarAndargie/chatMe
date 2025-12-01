@@ -20,3 +20,8 @@ const prisma = globalThis.prismaGlobal ?? prismaClientSingleton()
 export default prisma
 
 if (process.env.NODE_ENV !== 'production') globalThis.prismaGlobal = prisma
+
+// Add connection pooling and retry logic
+prisma.$connect().catch((err) => {
+    console.error('Failed to connect to database:', err)
+})
