@@ -1,10 +1,12 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { Socket } from "socket.io-client";
+import io from "socket.io-client";
+import type { Socket } from "socket.io-client";
+import { authClient } from "@/lib/auth-client";
 
 interface SocketContextType {
-    socket: typeof Socket | null;
+    socket: Socket | null;
     isConnected: boolean;
 }
 
@@ -22,30 +24,63 @@ export const SocketProvider = ({
 }: {
     children: React.ReactNode;
 }) => {
-    const [socket, setSocket] = useState<typeof Socket | null>(null);
+    const [socket, setSocket] = useState<Socket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
 
     useEffect(() => {
-        // Connect to the custom server on port 3005
-        const socketInstance = io("http://localhost:3005", {
-            path: "/socket.io",
-        });
+        const initSocket = async () => {
+            // Get current user session
+            const { data: session } = await authClient.getSession();
 
-        socketInstance.on("connect", () => {
-            console.log("Connected to socket server");
-            setIsConnected(true);
-        });
+            if (!session?.user?.id) {
+                console.log("No user session, skipping socket connection");
+                return;
+            }
 
-        socketInstance.on("disconnect", () => {
-            console.log("Disconnected from socket server");
-            setIsConnected(false);
-        });
+            // Update user status to online
+            try {
+                await fetch("/api/user/status", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ isOnline: true }),
+                });
+            } catch (error) {
+                console.error("Failed to update online status:", error);
+            }
 
-        setSocket(socketInstance);
+            // Connect to the custom server on port 3005
+            const socketInstance = io("http://localhost:3005", {
+                path: "/socket.io",
+            });
 
-        return () => {
-            socketInstance.disconnect();
+            socketInstance.on("connect", () => {
+                console.log("Connected to socket server");
+                setIsConnected(true);
+
+                // Authenticate user with socket
+                socketInstance.emit("authenticate", { userId: session.user.id });
+            });
+
+            socketInstance.on("disconnect", () => {
+                console.log("Disconnected from socket server");
+                setIsConnected(false);
+            });
+
+            setSocket(socketInstance);
+
+            return () => {
+                // Update user status to offline before disconnecting
+                fetch("/api/user/status", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ isOnline: false }),
+                }).catch(console.error);
+
+                socketInstance.disconnect();
+            };
         };
+
+        initSocket();
     }, []);
 
     return (

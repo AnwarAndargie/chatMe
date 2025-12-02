@@ -11,75 +11,112 @@ import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { MessageSquare, Info } from "lucide-react";
 import type { User } from "@/lib/mock-users";
-import { mockUsers } from "@/lib/mock-users";
-
-// Mock current user data - in a real app, this would come from auth context
-const CURRENT_USER = {
-    name: "You",
-    avatar: undefined,
-};
-
-// Type for managing chat histories per user
-type ChatHistories = {
-    [userId: string]: Message[];
-};
+import { useSocket } from "@/components/providers/socket-provider";
 
 export function ChatInterface() {
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
-    const [chatHistories, setChatHistories] = useState<ChatHistories>({});
+    const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [messages, setMessages] = useState<Message[]>([]);
     const [userInfoSheetOpen, setUserInfoSheetOpen] = useState(false);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const { socket, isConnected } = useSocket();
 
-    // Get messages for the currently selected user
-    const currentMessages = selectedUser
-        ? chatHistories[selectedUser.id] || []
-        : [];
 
-    // Auto-scroll to bottom when new messages arrive
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [currentMessages]);
+    }, [messages]);
 
-    const handleSelectUser = (user: User) => {
+
+    useEffect(() => {
+        if (!socket) return;
+
+        socket.on("receive-message", (message: any) => {
+            const newMessage: Message = {
+                id: message.id,
+                content: message.content,
+                sender: {
+                    name: message.sender.name,
+                    avatar: message.sender.image,
+                },
+                timestamp: new Date(message.sentAt),
+                isCurrentUser: message.senderId === currentUserId,
+            };
+            setMessages((prev) => [...prev, newMessage]);
+        });
+
+        return () => {
+            socket.off("receive-message");
+        };
+    }, [socket, currentUserId]);
+
+    const handleSelectUser = async (user: User) => {
         setSelectedUser(user);
+        setMessages([]);
+
+        try {
+            const chatResponse = await fetch("/api/chats", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: user.id }),
+            });
+
+            if (chatResponse.ok) {
+                const chat = await chatResponse.json();
+                setCurrentChatId(chat.id);
+
+                const otherUserId = user.id;
+                const myUserId = chat.participantIds.find((id: string) => id !== otherUserId);
+                setCurrentUserId(myUserId);
+                if (socket) {
+                    socket.emit("join-room", chat.id);
+                }
+
+                const messagesResponse = await fetch(`/api/messages?chatId=${chat.id}`);
+                if (messagesResponse.ok) {
+                    const apiMessages = await messagesResponse.json();
+                    const transformedMessages: Message[] = apiMessages.map((msg: any) => ({
+                        id: msg.id,
+                        content: msg.content,
+                        sender: {
+                            name: msg.sender.name,
+                            avatar: msg.sender.image,
+                        },
+                        timestamp: new Date(msg.sentAt),
+                        isCurrentUser: msg.sender.id === myUserId,
+                    }));
+                    setMessages(transformedMessages);
+                }
+            }
+        } catch (error) {
+            console.error("Failed to load chat:", error);
+        }
     };
 
-    const handleSendMessage = (content: string) => {
-        if (!selectedUser) return;
+    const handleSendMessage = async (content: string) => {
+        if (!selectedUser || !currentChatId) return;
 
-        const newMessage: Message = {
-            id: Date.now().toString(),
-            content,
-            sender: CURRENT_USER,
-            timestamp: new Date(),
-            isCurrentUser: true,
-        };
+        try {
+            const response = await fetch("/api/messages", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ content, chatId: currentChatId }),
+            });
 
-        // Add message to the selected user's chat history
-        setChatHistories((prev) => ({
-            ...prev,
-            [selectedUser.id]: [...(prev[selectedUser.id] || []), newMessage],
-        }));
+            if (response.ok) {
+                const savedMessage = await response.json();
 
-        // Simulate a response after 1-2 seconds (for demo purposes)
-        setTimeout(() => {
-            const responseMessage: Message = {
-                id: (Date.now() + 1).toString(),
-                content: getAutoResponse(content),
-                sender: {
-                    name: selectedUser.name,
-                    avatar: selectedUser.avatar,
-                },
-                timestamp: new Date(),
-                isCurrentUser: false,
-            };
-
-            setChatHistories((prev) => ({
-                ...prev,
-                [selectedUser.id]: [...(prev[selectedUser.id] || []), responseMessage],
-            }));
-        }, 1000 + Math.random() * 1000);
+                if (socket) {
+                    socket.emit("send-message", {
+                        ...savedMessage,
+                        sessionId: currentChatId,
+                    });
+                }
+            }
+        } catch (error) {
+            console.error("Failed to send message:", error);
+        }
     };
 
     return (
@@ -140,7 +177,7 @@ export function ChatInterface() {
 
                             {/* Messages Area */}
                             <ScrollArea className="flex-1 px-6 py-4" ref={scrollAreaRef}>
-                                {currentMessages.length === 0 ? (
+                                {messages.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center h-full text-center px-4">
                                         <div className="rounded-full bg-primary/10 p-6 mb-4">
                                             <MessageSquare className="h-12 w-12 text-primary" />
@@ -153,7 +190,7 @@ export function ChatInterface() {
                                     </div>
                                 ) : (
                                     <div className="space-y-1">
-                                        {currentMessages.map((message) => (
+                                        {messages.map((message) => (
                                             <ChatMessage key={message.id} message={message} />
                                         ))}
                                         <div ref={messagesEndRef} />
@@ -178,10 +215,8 @@ export function ChatInterface() {
                             <div className="flex gap-2 text-sm text-muted-foreground">
                                 <span className="inline-flex items-center gap-1">
                                     <div className="w-2 h-2 bg-green-500 rounded-full" />
-                                    {mockUsers.filter((u) => u.online).length} online
+                                    Online users
                                 </span>
-                                <span>•</span>
-                                <span>{mockUsers.length} total users</span>
                             </div>
                         </div>
                     )}
@@ -196,32 +231,4 @@ export function ChatInterface() {
             />
         </SidebarProvider>
     );
-}
-
-// Simple auto-response function for demo purposes
-function getAutoResponse(userMessage: string): string {
-    const lowerMessage = userMessage.toLowerCase();
-
-    if (lowerMessage.includes("hello") || lowerMessage.includes("hi")) {
-        return "Hey! How are you doing today?";
-    }
-    if (lowerMessage.includes("how are you")) {
-        return "I'm doing great, thanks for asking! How about you?";
-    }
-    if (lowerMessage.includes("bye")) {
-        return "Goodbye! Have a great day!";
-    }
-    if (lowerMessage.includes("?")) {
-        return "That's a great question! Let me think about that...";
-    }
-
-    const responses = [
-        "That's interesting! Tell me more.",
-        "I see what you mean!",
-        "Thanks for sharing that with me.",
-        "That sounds really cool!",
-        "I totally understand.",
-    ];
-
-    return responses[Math.floor(Math.random() * responses.length)];
 }

@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Search, Menu } from "lucide-react";
 import type { User } from "@/lib/mock-users";
-import { mockUsers } from "@/lib/mock-users";
 import { UserListItem } from "@/components/chat/user-list-item";
 import { UserProfileSheet } from "@/components/chat/user-profile-sheet";
 import { ConversationFilters, type ConversationFilter } from "@/components/chat/conversation-filters";
@@ -27,29 +26,43 @@ export function ChatSidebar({ selectedUserId, onSelectUser }: ChatSidebarProps) 
     const [profileSheetOpen, setProfileSheetOpen] = useState(false);
     const [activeFilter, setActiveFilter] = useState<ConversationFilter>("all");
 
-    // Mock unread count - in real app, this would come from actual data
-    const unreadCount = 3;
+    const [users, setUsers] = useState<User[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                const response = await fetch("/api/users");
+                if (response.ok) {
+                    const data = await response.json();
+                    setUsers(data);
+                }
+            } catch (error) {
+                console.error("Failed to fetch users:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchUsers();
+    }, []);
 
     const filteredUsers = useMemo(() => {
         const query = searchQuery.toLowerCase().trim();
-        let users = mockUsers;
+        let filtered = users;
 
-        // Apply search filter
         if (query) {
-            users = users.filter((user) =>
+            filtered = filtered.filter((user) =>
                 user.name.toLowerCase().includes(query)
             );
         }
 
-        // Apply conversation filter
-        // In a real app, you would filter based on actual unread messages
-        // For demo, we'll just show online users as "unread"
         if (activeFilter === "unread") {
-            users = users.filter((user) => user.online);
+            filtered = filtered.filter((user) => user.online);
         }
 
-        return users;
-    }, [searchQuery, activeFilter]);
+        return filtered;
+    }, [users, searchQuery, activeFilter]);
 
     return (
         <>
@@ -81,11 +94,10 @@ export function ChatSidebar({ selectedUserId, onSelectUser }: ChatSidebarProps) 
                         />
                     </div>
 
-                    {/* Conversation Filters */}
                     <ConversationFilters
                         activeFilter={activeFilter}
                         onFilterChange={setActiveFilter}
-                        unreadCount={unreadCount}
+                        unreadCount={0}
                     />
                 </SidebarHeader>
 

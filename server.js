@@ -1,5 +1,5 @@
 import { Server } from "socket.io";
-import socketHandler from "./app/api/socket/route";
+import socketHandler from "./app/api/socket/route.ts";
 
 const PORT = 3005;
 const io = new Server({

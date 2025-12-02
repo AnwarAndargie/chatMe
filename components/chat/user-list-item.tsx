@@ -21,7 +21,8 @@ export function UserListItem({ user, isActive, onClick }: UserListItemProps) {
         if (!user.lastSeen) return "Offline";
 
         const now = new Date();
-        const diff = now.getTime() - user.lastSeen.getTime();
+        const lastSeenDate = new Date(user.lastSeen);
+        const diff = now.getTime() - lastSeenDate.getTime();
         const minutes = Math.floor(diff / 1000 / 60);
         const hours = Math.floor(minutes / 60);
         const days = Math.floor(hours / 24);
@@ -42,7 +43,7 @@ export function UserListItem({ user, isActive, onClick }: UserListItemProps) {
         >
             <div className="relative">
                 <Avatar className="h-12 w-12">
-                    <AvatarImage src={user.avatar} alt={user.name} />
+                    <AvatarImage src={user.avatar || undefined} alt={user.name} />
                     <AvatarFallback className="bg-primary text-primary-foreground">
                         {initials}
                     </AvatarFallback>

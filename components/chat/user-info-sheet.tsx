@@ -42,7 +42,8 @@ export function UserInfoSheet({ user, open, onOpenChange }: UserInfoSheetProps) 
         if (!user.lastSeen) return "Last seen recently";
 
         const now = new Date();
-        const diff = now.getTime() - user.lastSeen.getTime();
+        const lastSeenDate = new Date(user.lastSeen);
+        const diff = now.getTime() - lastSeenDate.getTime();
         const minutes = Math.floor(diff / 1000 / 60);
         const hours = Math.floor(minutes / 60);
         const days = Math.floor(hours / 24);
@@ -60,7 +61,7 @@ export function UserInfoSheet({ user, open, onOpenChange }: UserInfoSheetProps) 
                     {/* Header with Avatar */}
                     <div className="p-6 text-center space-y-4">
                         <Avatar className="h-32 w-32 mx-auto">
-                            <AvatarImage src={user.avatar} alt={user.name} />
+                            <AvatarImage src={user.avatar || undefined} alt={user.name} />
                             <AvatarFallback className="bg-primary text-primary-foreground text-4xl">
                                 {initials}
                             </AvatarFallback>
