@@ -14,6 +14,9 @@ import { User, Mail, LogOut, Settings } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface UserProfileSheetProps {
     open: boolean;
@@ -24,6 +27,12 @@ export function UserProfileSheet({ open, onOpenChange }: UserProfileSheetProps) 
     const router = useRouter();
     const { data: session, isPending } = authClient.useSession();
     const user = session?.user;
+
+    const [isEditing, setIsEditing] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [name, setName] = useState(user?.name ?? "");
+    const [image, setImage] = useState(user?.image ?? "");
+    const [error, setError] = useState<string | null>(null);
 
     const initials = user?.name
         ? user.name
@@ -47,9 +56,11 @@ export function UserProfileSheet({ open, onOpenChange }: UserProfileSheetProps) 
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent side="left" className="w-80">
                 <SheetHeader>
-                    <SheetTitle>Profile</SheetTitle>
+                    <SheetTitle>{isEditing ? "Edit Profile" : "Profile"}</SheetTitle>
                     <SheetDescription>
-                        View and manage your profile information
+                        {isEditing
+                            ? "Update your profile details"
+                            : "View and manage your profile information"}
                     </SheetDescription>
                 </SheetHeader>
 
@@ -85,43 +96,144 @@ export function UserProfileSheet({ open, onOpenChange }: UserProfileSheetProps) 
                         </div>
                     </div>
 
-                    {/* Profile Actions */}
-                    <div className="space-y-2">
-                        <Button
-                            variant="outline"
-                            className="w-full justify-start"
-                            onClick={() => {
-                                // TODO: Navigate to profile edit
-                                console.log("Edit profile");
-                            }}
-                        >
-                            <User className="h-4 w-4 mr-2" />
-                            Edit Profile
-                        </Button>
+                    {/* Profile Actions / Edit Form */}
+                    {isEditing ? (
+                        <form
+                            className="space-y-4"
+                            onSubmit={async (e) => {
+                                e.preventDefault();
+                                setError(null);
+                                setIsSaving(true);
+                                try {
+                                    const trimmedName = name.trim();
+                                    const trimmedImage = image.trim();
 
-                        <Button
-                            variant="outline"
-                            className="w-full justify-start"
-                            onClick={() => {
-                                // TODO: Navigate to settings
-                                console.log("Settings");
-                            }}
-                        >
-                            <Settings className="h-4 w-4 mr-2" />
-                            Settings
-                        </Button>
+                                    const payload: { name?: string; image?: string } = {};
+                                    if (trimmedName && trimmedName !== user?.name) {
+                                        payload.name = trimmedName;
+                                    }
+                                    if (trimmedImage && trimmedImage !== user?.image) {
+                                        payload.image = trimmedImage;
+                                    }
 
-                        <Button
-                            variant="outline"
-                            className="w-full justify-start text-destructive hover:text-destructive"
-                            onClick={() => {
-                                logout();
+                                    // If nothing changed, just exit edit mode
+                                    if (!payload.name && !payload.image) {
+                                        setIsEditing(false);
+                                        setIsSaving(false);
+                                        return;
+                                    }
+
+                                    const res = await fetch("/api/users/me", {
+                                        method: "PATCH",
+                                        headers: {
+                                            "Content-Type": "application/json",
+                                        },
+                                        body: JSON.stringify(payload),
+                                    });
+
+                                    if (!res.ok) {
+                                        const text = await res.text();
+                                        throw new Error(text || "Failed to update profile");
+                                    }
+
+                                    // Refresh session data
+                                    await authClient.updateSession();
+                                    setIsEditing(false);
+                                } catch (err: any) {
+                                    setError(err.message ?? "Failed to update profile");
+                                } finally {
+                                    setIsSaving(false);
+                                }
                             }}
                         >
-                            <LogOut className="h-4 w-4 mr-2" />
-                            Logout
-                        </Button>
-                    </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="name">Name</Label>
+                                <Input
+                                    id="name"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    placeholder="Your name"
+                                    disabled={isSaving || isPending}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="image">Avatar URL</Label>
+                                <Input
+                                    id="image"
+                                    value={image}
+                                    onChange={(e) => setImage(e.target.value)}
+                                    placeholder="https://example.com/avatar.png"
+                                    disabled={isSaving || isPending}
+                                />
+                            </div>
+
+                            {error && (
+                                <p className="text-sm text-destructive">{error}</p>
+                            )}
+
+                            <div className="flex gap-2 pt-2">
+                                <Button
+                                    type="submit"
+                                    className="flex-1"
+                                    disabled={isSaving || isPending}
+                                >
+                                    {isSaving ? "Saving..." : "Save changes"}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="flex-1"
+                                    disabled={isSaving}
+                                    onClick={() => {
+                                        setIsEditing(false);
+                                        setError(null);
+                                        setName(user?.name ?? "");
+                                        setImage(user?.image ?? "");
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                            </div>
+                        </form>
+                    ) : (
+                        <div className="space-y-2">
+                            <Button
+                                variant="outline"
+                                className="w-full justify-start"
+                                onClick={() => {
+                                    setIsEditing(true);
+                                    setName(user?.name ?? "");
+                                    setImage(user?.image ?? "");
+                                }}
+                            >
+                                <User className="h-4 w-4 mr-2" />
+                                Edit Profile
+                            </Button>
+
+                            <Button
+                                variant="outline"
+                                className="w-full justify-start"
+                                onClick={() => {
+                                    console.log("Settings");
+                                }}
+                            >
+                                <Settings className="h-4 w-4 mr-2" />
+                                Settings
+                            </Button>
+
+                            <Button
+                                variant="outline"
+                                className="w-full justify-start text-destructive hover:text-destructive"
+                                onClick={() => {
+                                    logout();
+                                }}
+                            >
+                                <LogOut className="h-4 w-4 mr-2" />
+                                Logout
+                            </Button>
+                        </div>
+                    )}
                 </div>
             </SheetContent>
         </Sheet>

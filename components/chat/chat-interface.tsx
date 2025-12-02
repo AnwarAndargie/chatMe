@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
-import { MessageSquare, Info } from "lucide-react";
+import { MessageSquare, Info, Loader2 } from "lucide-react";
 import type { User } from "@/lib/mock-users";
 import { useSocket } from "@/components/providers/socket-provider";
 
@@ -18,14 +18,27 @@ export function ChatInterface() {
     const [currentChatId, setCurrentChatId] = useState<string | null>(null);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
+    const [isLoadingMessages, setIsLoadingMessages] = useState(false);
     const [userInfoSheetOpen, setUserInfoSheetOpen] = useState(false);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const { socket, isConnected } = useSocket();
 
 
+    // Scroll to bottom when messages change
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        if (scrollAreaRef.current && messages.length > 0) {
+            // Use requestAnimationFrame to ensure DOM is updated
+            requestAnimationFrame(() => {
+                const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement;
+                if (viewport) {
+                    viewport.scrollTo({
+                        top: viewport.scrollHeight,
+                        behavior: "smooth"
+                    });
+                }
+            });
+        }
     }, [messages]);
 
 
@@ -54,6 +67,7 @@ export function ChatInterface() {
     const handleSelectUser = async (user: User) => {
         setSelectedUser(user);
         setMessages([]);
+        setIsLoadingMessages(true);
 
         try {
             const chatResponse = await fetch("/api/chats", {
@@ -91,6 +105,8 @@ export function ChatInterface() {
             }
         } catch (error) {
             console.error("Failed to load chat:", error);
+        } finally {
+            setIsLoadingMessages(false);
         }
     };
 
@@ -129,9 +145,9 @@ export function ChatInterface() {
                 />
 
                 {/* Main Chat Area */}
-                <SidebarInset className="flex-1">
+                <SidebarInset className="flex-1 overflow-hidden">
                     {selectedUser ? (
-                        <div className="flex flex-col h-full">
+                        <div className="flex flex-col h-full overflow-hidden">
                             {/* Chat Header */}
                             <div className="border-b border-border bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/30 px-6 py-4 shadow-sm">
                                 <div className="flex items-center justify-between">
@@ -176,30 +192,42 @@ export function ChatInterface() {
                             </div>
 
                             {/* Messages Area */}
-                            <ScrollArea className="flex-1 px-6 py-4" ref={scrollAreaRef}>
-                                {messages.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                                        <div className="rounded-full bg-primary/10 p-6 mb-4">
-                                            <MessageSquare className="h-12 w-12 text-primary" />
-                                        </div>
-                                        <h3 className="text-xl font-semibold mb-2">No messages yet</h3>
-                                        <p className="text-muted-foreground max-w-sm">
-                                            Start the conversation with {selectedUser.name} by sending a
-                                            message below.
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-1">
-                                        {messages.map((message) => (
-                                            <ChatMessage key={message.id} message={message} />
-                                        ))}
-                                        <div ref={messagesEndRef} />
+                            <div className="flex-1 relative overflow-hidden min-h-0">
+                                {isLoadingMessages && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center z-10 bg-background/80 backdrop-blur-sm">
+                                        <Loader2 className="h-8 w-8 text-primary animate-spin mb-4" />
+                                        <p className="text-muted-foreground">Loading messages...</p>
                                     </div>
                                 )}
-                            </ScrollArea>
+                                <ScrollArea className="h-full w-full" ref={scrollAreaRef}>
+                                    <div className="px-6 py-4">
+                                        {messages.length === 0 && !isLoadingMessages ? (
+                                            <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center px-4">
+                                                <div className="rounded-full bg-primary/10 p-6 mb-4">
+                                                    <MessageSquare className="h-12 w-12 text-primary" />
+                                                </div>
+                                                <h3 className="text-xl font-semibold mb-2">No messages yet</h3>
+                                                <p className="text-muted-foreground max-w-sm">
+                                                    Start the conversation with {selectedUser.name} by sending a
+                                                    message below.
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-1 pb-2">
+                                                {messages.map((message) => (
+                                                    <ChatMessage key={message.id} message={message} />
+                                                ))}
+                                                <div ref={messagesEndRef} />
+                                            </div>
+                                        )}
+                                    </div>
+                                </ScrollArea>
+                            </div>
 
-                            {/* Input Area */}
-                            <ChatInput onSendMessage={handleSendMessage} />
+                            {/* Input Area - Fixed at bottom */}
+                            <div className="flex-shrink-0">
+                                <ChatInput onSendMessage={handleSendMessage} />
+                            </div>
                         </div>
                     ) : (
                         // No user selected state

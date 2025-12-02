@@ -37,19 +37,11 @@ export const SocketProvider = ({
                 return;
             }
 
-            // Update user status to online
-            try {
-                await fetch("/api/user/status", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ isOnline: true }),
-                });
-            } catch (error) {
-                console.error("Failed to update online status:", error);
-            }
+            // Connect to the standalone Socket.IO server
+            const socketUrl =
+                process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3005";
 
-            // Connect to the custom server on port 3005
-            const socketInstance = io("http://localhost:3005", {
+            const socketInstance = io(socketUrl, {
                 path: "/socket.io",
             });
 
@@ -69,13 +61,6 @@ export const SocketProvider = ({
             setSocket(socketInstance);
 
             return () => {
-                // Update user status to offline before disconnecting
-                fetch("/api/user/status", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ isOnline: false }),
-                }).catch(console.error);
-
                 socketInstance.disconnect();
             };
         };
