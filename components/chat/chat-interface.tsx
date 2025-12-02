@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ChatMessage, type Message } from "@/components/chat-message";
-import { ChatInput } from "@/components/chat-input";
-import { ChatSidebar } from "@/components/chat-sidebar";
+import { ChatMessage, type Message } from "@/components/chat/chat-message";
+import { ChatInput } from "@/components/chat/chat-input";
+import { ChatSidebar } from "@/components/chat/chat-sidebar";
+import { UserInfoSheet } from "@/components/chat/user-info-sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Info } from "lucide-react";
 import type { User } from "@/lib/mock-users";
 import { mockUsers } from "@/lib/mock-users";
 
@@ -25,6 +27,7 @@ type ChatHistories = {
 export function ChatInterface() {
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [chatHistories, setChatHistories] = useState<ChatHistories>({});
+    const [userInfoSheetOpen, setUserInfoSheetOpen] = useState(false);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -94,31 +97,44 @@ export function ChatInterface() {
                         <div className="flex flex-col h-full">
                             {/* Chat Header */}
                             <div className="border-b border-border bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/30 px-6 py-4 shadow-sm">
-                                <div className="flex items-center gap-3">
-                                    <div className="relative">
-                                        <Avatar className="h-10 w-10">
-                                            <AvatarImage src={selectedUser.avatar} alt={selectedUser.name} />
-                                            <AvatarFallback className="bg-primary text-primary-foreground">
-                                                {selectedUser.name
-                                                    .split(" ")
-                                                    .map((n) => n[0])
-                                                    .join("")
-                                                    .toUpperCase()}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                        {/* Online indicator */}
-                                        {selectedUser.online && (
-                                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
-                                        )}
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="relative">
+                                            <Avatar className="h-10 w-10">
+                                                <AvatarImage src={selectedUser.avatar} alt={selectedUser.name} />
+                                                <AvatarFallback className="bg-primary text-primary-foreground">
+                                                    {selectedUser.name
+                                                        .split(" ")
+                                                        .map((n) => n[0])
+                                                        .join("")
+                                                        .toUpperCase()}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            {/* Online indicator */}
+                                            {selectedUser.online && (
+                                                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
+                                            )}
+                                        </div>
+                                        <div>
+                                            <h2 className="text-lg font-semibold text-foreground">
+                                                {selectedUser.name}
+                                            </h2>
+                                            <p className="text-sm text-muted-foreground">
+                                                {selectedUser.online ? "Active now" : "Offline"}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h2 className="text-lg font-semibold text-foreground">
-                                            {selectedUser.name}
-                                        </h2>
-                                        <p className="text-sm text-muted-foreground">
-                                            {selectedUser.online ? "Active now" : "Offline"}
-                                        </p>
-                                    </div>
+
+                                    {/* Info Button */}
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-9 w-9"
+                                        onClick={() => setUserInfoSheetOpen(true)}
+                                    >
+                                        <Info className="h-5 w-5" />
+                                        <span className="sr-only">User info</span>
+                                    </Button>
                                 </div>
                             </div>
 
@@ -171,6 +187,13 @@ export function ChatInterface() {
                     )}
                 </SidebarInset>
             </div>
+
+            {/* User Info Sheet */}
+            <UserInfoSheet
+                user={selectedUser}
+                open={userInfoSheetOpen}
+                onOpenChange={setUserInfoSheetOpen}
+            />
         </SidebarProvider>
     );
 }

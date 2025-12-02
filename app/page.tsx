@@ -1,5 +1,5 @@
-import { AuthTabs } from "@/components/auth-tabs";
-import { HeroSection } from "@/components/hero-section";
+import { AuthTabs } from "@/components/auth/auth-tabs";
+import { HeroSection } from "@/components/home/hero-section";
 
 export default function Home() {
   return (
