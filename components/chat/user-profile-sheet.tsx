@@ -11,24 +11,37 @@ import {
 import { Button } from "@/components/ui/button";
 import { User, Mail, LogOut, Settings } from "lucide-react";
 
+import { authClient } from "@/lib/auth-client";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useRouter } from "next/navigation";
+
 interface UserProfileSheetProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }
 
-// Mock current user - in real app, this would come from auth context
-const CURRENT_USER = {
-    name: "John Doe",
-    email: "john.doe@example.com",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=John",
-};
-
 export function UserProfileSheet({ open, onOpenChange }: UserProfileSheetProps) {
-    const initials = CURRENT_USER.name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase();
+    const router = useRouter();
+    const { data: session, isPending } = authClient.useSession();
+    const user = session?.user;
+
+    const initials = user?.name
+        ? user.name
+            .split(" ")
+            .map((n) => n[0])
+            .join("")
+            .toUpperCase()
+        : "??";
+
+    const logout = async () => {
+        await authClient.signOut({
+            fetchOptions: {
+                onSuccess: () => {
+                    router.push("/");
+                },
+            },
+        });
+    };
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -43,19 +56,32 @@ export function UserProfileSheet({ open, onOpenChange }: UserProfileSheetProps) 
                 <div className="mt-6 space-y-6">
                     {/* Profile Avatar and Info */}
                     <div className="flex flex-col items-center text-center space-y-4">
-                        <Avatar className="h-24 w-24">
-                            <AvatarImage src={CURRENT_USER.avatar} alt={CURRENT_USER.name} />
-                            <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
-                                {initials}
-                            </AvatarFallback>
-                        </Avatar>
+                        {isPending ? (
+                            <Skeleton className="h-24 w-24 rounded-full" />
+                        ) : (
+                            <Avatar className="h-24 w-24">
+                                <AvatarImage src={user?.image || ""} alt={user?.name || "User"} />
+                                <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
+                                    {initials}
+                                </AvatarFallback>
+                            </Avatar>
+                        )}
 
                         <div>
-                            <h3 className="text-xl font-semibold">{CURRENT_USER.name}</h3>
-                            <p className="text-sm text-muted-foreground flex items-center justify-center gap-1 mt-1">
-                                <Mail className="h-3 w-3" />
-                                {CURRENT_USER.email}
-                            </p>
+                            {isPending ? (
+                                <div className="space-y-2">
+                                    <Skeleton className="h-6 w-32 mx-auto" />
+                                    <Skeleton className="h-4 w-48 mx-auto" />
+                                </div>
+                            ) : (
+                                <>
+                                    <h3 className="text-xl font-semibold">{user?.name || "Guest"}</h3>
+                                    <p className="text-sm text-muted-foreground flex items-center justify-center gap-1 mt-1">
+                                        <Mail className="h-3 w-3" />
+                                        {user?.email || "No email"}
+                                    </p>
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -89,8 +115,7 @@ export function UserProfileSheet({ open, onOpenChange }: UserProfileSheetProps) 
                             variant="outline"
                             className="w-full justify-start text-destructive hover:text-destructive"
                             onClick={() => {
-                                // TODO: Handle logout
-                                console.log("Logout");
+                                logout();
                             }}
                         >
                             <LogOut className="h-4 w-4 mr-2" />

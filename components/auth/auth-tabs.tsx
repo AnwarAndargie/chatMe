@@ -24,7 +24,7 @@ export function AuthTabs() {
         }, {
             onSuccess: () => {
                 setIsLoading(false);
-                router.push("/my-chats");
+                router.push("/chat");
             },
             onError: (ctx) => {
                 setIsLoading(false);
@@ -42,7 +42,7 @@ export function AuthTabs() {
         }, {
             onSuccess: () => {
                 setIsLoading(false);
-                router.push("/my-chats");
+                router.push("/chat");
             },
             onError: (ctx) => {
                 setIsLoading(false);
@@ -54,11 +54,12 @@ export function AuthTabs() {
     async function handleGoogleSignIn() {
         setIsLoading(true);
         await authClient.signIn.social({
-            provider: "google"
+            provider: "google",
+            callbackURL: "/chat",
         }, {
             onSuccess: () => {
                 setIsLoading(false);
-                router.push("/my-chats");
+                router.push("/chat");
             },
             onError: (ctx) => {
                 setIsLoading(false);
@@ -66,6 +67,7 @@ export function AuthTabs() {
             }
         });
     }
+
 
     return (
         <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
