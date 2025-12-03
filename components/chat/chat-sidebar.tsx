@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useSocket } from "@/components/providers/socket-provider";
 
 interface ChatSidebarProps {
@@ -146,7 +147,23 @@ export function ChatSidebar({ selectedUserId, onSelectUser }: ChatSidebarProps) 
 
                 <SidebarContent>
                     <SidebarMenu>
-                        {filteredUsers.length === 0 ? (
+                        {isLoading ? (
+                            // Loading skeleton state
+                            Array.from({ length: 5 }).map((_, index) => (
+                                <SidebarMenuItem key={`skeleton-${index}`} className="list-none">
+                                    <div className="w-full flex items-center gap-3 px-4 py-3">
+                                        <div className="relative">
+                                            <Skeleton className="h-12 w-12 rounded-full" />
+                                            <Skeleton className="absolute bottom-0 right-0 h-3 w-3 rounded-full border border-background" />
+                                        </div>
+                                        <div className="flex-1 space-y-2">
+                                            <Skeleton className="h-4 w-3/4" />
+                                            <Skeleton className="h-3 w-1/2" />
+                                        </div>
+                                    </div>
+                                </SidebarMenuItem>
+                            ))
+                        ) : filteredUsers.length === 0 ? (
                             <div className="text-center py-8 px-4">
                                 <p className="text-sm text-muted-foreground">
                                     {searchQuery

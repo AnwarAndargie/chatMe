@@ -31,7 +31,8 @@ export async function GET(req: Request) {
 
         const messages = await prisma.message.findMany({
             where: {
-                sessionId: chatId
+                sessionId: chatId,
+                isDeleted: false
             },
             include: {
                 sender: {

@@ -45,7 +45,7 @@ export function ChatInterface() {
     useEffect(() => {
         if (!socket) return;
 
-        socket.on("receive-message", (message:any) => {
+        socket.on("receive-message", (message: any) => {
             const newMessage: Message = {
                 id: message.id,
                 content: message.content,
@@ -55,12 +55,35 @@ export function ChatInterface() {
                 },
                 timestamp: new Date(message.sentAt),
                 isCurrentUser: message.senderId === currentUserId,
+                isEdited: message.isEdited,
+                editedAt: message.editedAt ? new Date(message.editedAt) : undefined,
             };
             setMessages((prev) => [...prev, newMessage]);
         });
 
+        socket.on("message-edited", (data: any) => {
+            setMessages((prev) =>
+                prev.map((msg) =>
+                    msg.id === data.messageId
+                        ? {
+                            ...msg,
+                            content: data.content,
+                            isEdited: data.isEdited,
+                            editedAt: data.editedAt ? new Date(data.editedAt) : undefined,
+                        }
+                        : msg
+                )
+            );
+        });
+
+        socket.on("message-deleted", (data: any) => {
+            setMessages((prev) => prev.filter((msg) => msg.id !== data.messageId));
+        });
+
         return () => {
             socket.off("receive-message");
+            socket.off("message-edited");
+            socket.off("message-deleted");
         };
     }, [socket, currentUserId]);
 
@@ -120,6 +143,8 @@ export function ChatInterface() {
                         },
                         timestamp: new Date(msg.sentAt),
                         isCurrentUser: msg.sender.id === myUserId,
+                        isEdited: msg.isEdited,
+                        editedAt: msg.editedAt ? new Date(msg.editedAt) : undefined,
                     }));
                     setMessages(transformedMessages);
                 }
@@ -156,6 +181,55 @@ export function ChatInterface() {
         }
     };
 
+    const handleEditMessage = async (messageId: string, newContent: string) => {
+        if (!currentChatId) return;
+
+        try {
+            const response = await fetch(`/api/messages/${messageId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ content: newContent }),
+            });
+
+            if (response.ok) {
+                const updatedMessage = await response.json();
+
+                if (socket) {
+                    socket.emit("edit-message", {
+                        sessionId: currentChatId,
+                        messageId: updatedMessage.id,
+                        content: updatedMessage.content,
+                        isEdited: updatedMessage.isEdited,
+                        editedAt: updatedMessage.editedAt,
+                    });
+                }
+            }
+        } catch (error) {
+            console.error("Failed to edit message:", error);
+        }
+    };
+
+    const handleDeleteMessage = async (messageId: string) => {
+        if (!currentChatId) return;
+
+        try {
+            const response = await fetch(`/api/messages/${messageId}`, {
+                method: "DELETE",
+            });
+
+            if (response.ok) {
+                if (socket) {
+                    socket.emit("delete-message", {
+                        sessionId: currentChatId,
+                        messageId,
+                    });
+                }
+            }
+        } catch (error) {
+            console.error("Failed to delete message:", error);
+        }
+    };
+
     return (
         <SidebarProvider>
             <div className="flex h-screen w-full bg-background">
@@ -176,30 +250,30 @@ export function ChatInterface() {
                                         {/* Sidebar Trigger for Mobile */}
                                         <SidebarTrigger className="md:hidden" />
                                         <div className="flex items-center gap-2 md:gap-3">
-                                        <div className="relative">
-                                            <Avatar className="h-10 w-10">
-                                                <AvatarImage src={selectedUser.avatar} alt={selectedUser.name} />
-                                                <AvatarFallback className="bg-primary text-primary-foreground">
-                                                    {selectedUser.name
-                                                        .split(" ")
-                                                        .map((n) => n[0])
-                                                        .join("")
-                                                        .toUpperCase()}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            {/* Online indicator */}
-                                            {selectedUser.online && (
-                                                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-700 rounded-full border border-background ring-2 ring-green-700" />
-                                            )}
-                                        </div>
-                                        <div>
-                                            <h2 className="text-lg font-semibold text-foreground">
-                                                {selectedUser.name}
-                                            </h2>
-                                            <p className="text-sm text-muted-foreground">
-                                                {selectedUser.online ? "Online" : "Offline"}
-                                            </p>
-                                        </div>
+                                            <div className="relative">
+                                                <Avatar className="h-10 w-10">
+                                                    <AvatarImage src={selectedUser.avatar} alt={selectedUser.name} />
+                                                    <AvatarFallback className="bg-primary text-primary-foreground">
+                                                        {selectedUser.name
+                                                            .split(" ")
+                                                            .map((n) => n[0])
+                                                            .join("")
+                                                            .toUpperCase()}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                {/* Online indicator */}
+                                                {selectedUser.online && (
+                                                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-700 rounded-full border border-background ring-2 ring-green-700" />
+                                                )}
+                                            </div>
+                                            <div>
+                                                <h2 className="text-lg font-semibold text-foreground">
+                                                    {selectedUser.name}
+                                                </h2>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {selectedUser.online ? "Online" : "Offline"}
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -240,7 +314,12 @@ export function ChatInterface() {
                                         ) : (
                                             <div className="space-y-1 pb-2">
                                                 {messages.map((message) => (
-                                                    <ChatMessage key={message.id} message={message} />
+                                                    <ChatMessage
+                                                        key={message.id}
+                                                        message={message}
+                                                        onEdit={handleEditMessage}
+                                                        onDelete={handleDeleteMessage}
+                                                    />
                                                 ))}
                                                 <div ref={messagesEndRef} />
                                             </div>
@@ -265,20 +344,20 @@ export function ChatInterface() {
                                 </div>
                             </div>
                             <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
-                            <div className="rounded-full bg-primary/10 p-8 mb-6">
-                                <MessageSquare className="h-16 w-16 text-primary" />
-                            </div>
-                            <h2 className="text-2xl font-bold mb-2">Welcome to Chat</h2>
-                            <p className="text-muted-foreground max-w-md mb-6">
-                                Select a user from the sidebar to start a conversation. You can
-                                search for users using the search bar above.
-                            </p>
-                            <div className="flex gap-2 text-sm text-muted-foreground">
-                                <span className="inline-flex items-center gap-1">
-                                    <div className="w-2 h-2 bg-green-500 rounded-full" />
-                                    Online users
-                                </span>
-                            </div>
+                                <div className="rounded-full bg-primary/10 p-8 mb-6">
+                                    <MessageSquare className="h-16 w-16 text-primary" />
+                                </div>
+                                <h2 className="text-2xl font-bold mb-2">Welcome to Chat</h2>
+                                <p className="text-muted-foreground max-w-md mb-6">
+                                    Select a user from the sidebar to start a conversation. You can
+                                    search for users using the search bar above.
+                                </p>
+                                <div className="flex gap-2 text-sm text-muted-foreground">
+                                    <span className="inline-flex items-center gap-1">
+                                        <div className="w-2 h-2 bg-green-500 rounded-full" />
+                                        Online users
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     )}

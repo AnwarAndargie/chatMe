@@ -137,7 +137,7 @@ export function UserProfileSheet({ open, onOpenChange }: UserProfileSheetProps) 
                                     }
 
                                     // Refresh session data
-                                    await authClient.updateSession();
+                                    router.refresh();
                                     setIsEditing(false);
                                 } catch (err: any) {
                                     setError(err.message ?? "Failed to update profile");

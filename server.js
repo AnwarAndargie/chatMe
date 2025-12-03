@@ -69,6 +69,25 @@ io.on("connection", (socket) => {
     socket.to(sessionId).emit("user-typing", { userId, isTyping });
   });
 
+  socket.on("edit-message", (data) => {
+    if (!data.sessionId || !data.messageId) return;
+
+    io.to(data.sessionId).emit("message-edited", {
+      messageId: data.messageId,
+      content: data.content,
+      isEdited: data.isEdited,
+      editedAt: data.editedAt,
+    });
+  });
+
+  socket.on("delete-message", (data) => {
+    if (!data.sessionId || !data.messageId) return;
+
+    io.to(data.sessionId).emit("message-deleted", {
+      messageId: data.messageId,
+    });
+  });
+
   socket.on("heartbeat", async () => {
     if (userId) await markUserOnline(userId); // Refresh TTL
   });
