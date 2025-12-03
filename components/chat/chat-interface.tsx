@@ -5,6 +5,7 @@ import { ChatMessage, type Message } from "@/components/chat/chat-message";
 import { ChatInput } from "@/components/chat/chat-input";
 import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { UserInfoSheet } from "@/components/chat/user-info-sheet";
+import { ThemeToggle } from "@/components/chat/theme-toggle";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -277,16 +278,19 @@ export function ChatInterface() {
                                         </div>
                                     </div>
 
-                                    {/* Info Button */}
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-9 w-9"
-                                        onClick={() => setUserInfoSheetOpen(true)}
-                                    >
-                                        <Info className="h-5 w-5" />
-                                        <span className="sr-only">User info</span>
-                                    </Button>
+                                    {/* Action Buttons */}
+                                    <div className="flex items-center gap-1">
+                                        <ThemeToggle />
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-9 w-9"
+                                            onClick={() => setUserInfoSheetOpen(true)}
+                                        >
+                                            <Info className="h-5 w-5" />
+                                            <span className="sr-only">User info</span>
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -338,9 +342,12 @@ export function ChatInterface() {
                         <div className="flex-1 flex flex-col h-full">
                             {/* Mobile Header with Sidebar Trigger */}
                             <div className="border-b border-border bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/30 px-4 py-3 md:hidden">
-                                <div className="flex items-center gap-2">
-                                    <SidebarTrigger />
-                                    <h2 className="text-lg font-semibold">Chats</h2>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <SidebarTrigger />
+                                        <h2 className="text-lg font-semibold">Chats</h2>
+                                    </div>
+                                    <ThemeToggle />
                                 </div>
                             </div>
                             <div className="flex-1 flex flex-col items-center justify-center text-center px-4">

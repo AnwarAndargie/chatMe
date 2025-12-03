@@ -2,7 +2,7 @@ import { MessageCircle, Zap, Shield, Globe } from "lucide-react";
 
 export function HeroSection() {
   return (
-    <div className="relative hidden h-full flex-col bg-zinc-900 p-10 text-white dark:border-r lg:flex overflow-hidden">
+    <div className="relative hidden h-full flex-col bg-zinc-900 p-6 md:p-8 lg:p-10 text-white dark:border-r lg:flex overflow-hidden">
       <div className="absolute inset-0 bg-zinc-900" />
       
       {/* Abstract Background Shapes */}
@@ -16,17 +16,17 @@ export function HeroSection() {
       </div>
       
       <div className="relative z-20 mt-auto">
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl mb-6">
+        <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight mb-4 md:mb-6">
           Connect with the world, <br />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
             one message at a time.
           </span>
         </h1>
-        <p className="text-lg text-zinc-400 mb-8 max-w-md">
+        <p className="text-base md:text-lg text-zinc-400 mb-6 md:mb-8 max-w-md">
           Experience seamless, secure, and instant communication with our modern chat platform. Designed for clarity, built for speed.
         </p>
 
-        <div className="grid grid-cols-2 gap-4 max-w-lg">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 max-w-lg">
           <div className="flex items-center gap-3 p-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10">
             <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400">
               <Zap className="h-5 w-5" />
@@ -60,7 +60,7 @@ export function HeroSection() {
       </div>
       
       {/* Mock Chat UI Floating Element */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[400px] bg-zinc-950/50 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl rotate-[-5deg] hover:rotate-0 transition-transform duration-500 hidden xl:block">
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[320px] xl:w-[350px] xl:h-[400px] bg-zinc-950/50 backdrop-blur-xl border border-white/10 rounded-2xl p-3 xl:p-4 shadow-2xl rotate-[-5deg] hover:rotate-0 transition-transform duration-500 hidden xl:block">
         <div className="flex items-center gap-3 mb-4 border-b border-white/10 pb-3">
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-yellow-400 to-orange-500" />
             <div>
