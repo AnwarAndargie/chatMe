@@ -8,7 +8,7 @@ import { UserInfoSheet } from "@/components/chat/user-info-sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { MessageSquare, Info, Loader2 } from "lucide-react";
 import type { User } from "@/lib/mock-users";
 import { useSocket } from "@/components/providers/socket-provider";
@@ -45,7 +45,7 @@ export function ChatInterface() {
     useEffect(() => {
         if (!socket) return;
 
-        socket.on("receive-message", (message: any) => {
+        socket.on("receive-message", (message:any) => {
             const newMessage: Message = {
                 id: message.id,
                 content: message.content,
@@ -63,6 +63,27 @@ export function ChatInterface() {
             socket.off("receive-message");
         };
     }, [socket, currentUserId]);
+
+    // Listen for onlineUsers updates from socket to update selected user status
+    useEffect(() => {
+        if (!socket || !selectedUser) return;
+
+        const handleOnlineUsers = (onlineUserIds: string[]) => {
+            setSelectedUser((prev) => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    online: onlineUserIds.includes(prev.id),
+                };
+            });
+        };
+
+        socket.on("onlineUsers", handleOnlineUsers);
+
+        return () => {
+            socket.off("onlineUsers", handleOnlineUsers);
+        };
+    }, [socket, selectedUser]);
 
     const handleSelectUser = async (user: User) => {
         setSelectedUser(user);
@@ -149,9 +170,12 @@ export function ChatInterface() {
                     {selectedUser ? (
                         <div className="flex flex-col h-full overflow-hidden">
                             {/* Chat Header */}
-                            <div className="border-b border-border bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/30 px-6 py-4 shadow-sm">
+                            <div className="border-b border-border bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/30 px-4 md:px-6 py-4 shadow-sm">
                                 <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-2 md:gap-3">
+                                        {/* Sidebar Trigger for Mobile */}
+                                        <SidebarTrigger className="md:hidden" />
+                                        <div className="flex items-center gap-2 md:gap-3">
                                         <div className="relative">
                                             <Avatar className="h-10 w-10">
                                                 <AvatarImage src={selectedUser.avatar} alt={selectedUser.name} />
@@ -165,7 +189,7 @@ export function ChatInterface() {
                                             </Avatar>
                                             {/* Online indicator */}
                                             {selectedUser.online && (
-                                                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
+                                                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-700 rounded-full border border-background ring-2 ring-green-700" />
                                             )}
                                         </div>
                                         <div>
@@ -173,8 +197,9 @@ export function ChatInterface() {
                                                 {selectedUser.name}
                                             </h2>
                                             <p className="text-sm text-muted-foreground">
-                                                {selectedUser.online ? "Active now" : "Offline"}
+                                                {selectedUser.online ? "Online" : "Offline"}
                                             </p>
+                                        </div>
                                         </div>
                                     </div>
 
@@ -231,7 +256,15 @@ export function ChatInterface() {
                         </div>
                     ) : (
                         // No user selected state
-                        <div className="flex-1 flex flex-col items-center justify-center text-center px-4 h-full">
+                        <div className="flex-1 flex flex-col h-full">
+                            {/* Mobile Header with Sidebar Trigger */}
+                            <div className="border-b border-border bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/30 px-4 py-3 md:hidden">
+                                <div className="flex items-center gap-2">
+                                    <SidebarTrigger />
+                                    <h2 className="text-lg font-semibold">Chats</h2>
+                                </div>
+                            </div>
+                            <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
                             <div className="rounded-full bg-primary/10 p-8 mb-6">
                                 <MessageSquare className="h-16 w-16 text-primary" />
                             </div>
@@ -245,6 +278,7 @@ export function ChatInterface() {
                                     <div className="w-2 h-2 bg-green-500 rounded-full" />
                                     Online users
                                 </span>
+                            </div>
                             </div>
                         </div>
                     )}

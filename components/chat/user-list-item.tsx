@@ -51,8 +51,8 @@ export function UserListItem({ user, isActive, onClick }: UserListItemProps) {
                 {/* Online indicator */}
                 <div
                     className={cn(
-                        "absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-background",
-                        user.online ? "bg-green-500" : "bg-muted-foreground"
+                        "absolute bottom-0 right-0 w-3 h-3 rounded-full border border-background",
+                        user.online ? "bg-green-700 ring-2 ring-green-700" : "bg-muted-foreground"
                     )}
                 />
             </div>
@@ -64,7 +64,7 @@ export function UserListItem({ user, isActive, onClick }: UserListItemProps) {
                 <p
                     className={cn(
                         "text-xs truncate",
-                        user.online ? "text-green-600 dark:text-green-500" : "text-muted-foreground"
+                        user.online ? "text-green-700 dark:text-green-600" : "text-muted-foreground"
                     )}
                 >
                     {getLastSeenText()}

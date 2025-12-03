@@ -5,7 +5,6 @@ import {
     Sheet,
     SheetContent,
     SheetDescription,
-    SheetHeader,
     SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -56,7 +55,7 @@ export function UserInfoSheet({ user, open, onOpenChange }: UserInfoSheetProps) 
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent side="right" className="w-96 p-0">
+            <SheetContent side="right" className="w-80 md:w-96 p-0">
                 <div className="flex flex-col h-full">
                     {/* Header with Avatar */}
                     <div className="p-6 text-center space-y-4">

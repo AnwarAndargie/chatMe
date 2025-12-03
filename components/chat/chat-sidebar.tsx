@@ -12,9 +12,11 @@ import {
     SidebarHeader,
     SidebarMenu,
     SidebarMenuItem,
+    useSidebar,
 } from "@/components/ui/sidebar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useSocket } from "@/components/providers/socket-provider";
 
 interface ChatSidebarProps {
     selectedUserId?: string;
@@ -25,6 +27,15 @@ export function ChatSidebar({ selectedUserId, onSelectUser }: ChatSidebarProps) 
     const [searchQuery, setSearchQuery] = useState("");
     const [profileSheetOpen, setProfileSheetOpen] = useState(false);
     const [activeFilter, setActiveFilter] = useState<ConversationFilter>("all");
+    const { socket } = useSocket();
+    const { isMobile, setOpenMobile } = useSidebar();
+
+    // Close sidebar on mobile when a user is selected
+    useEffect(() => {
+        if (isMobile && selectedUserId) {
+            setOpenMobile(false);
+        }
+    }, [selectedUserId, isMobile, setOpenMobile]);
 
     const [users, setUsers] = useState<User[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -35,7 +46,15 @@ export function ChatSidebar({ selectedUserId, onSelectUser }: ChatSidebarProps) 
                 const response = await fetch("/api/users");
                 if (response.ok) {
                     const data = await response.json();
-                    setUsers(data);
+                    // Transform API response to match User type
+                    const transformedUsers: User[] = data.map((user: any) => ({
+                        id: user.id,
+                        name: user.name,
+                        avatar: user.image || undefined,
+                        online: user.isOnline || false,
+                        lastSeen: user.lastSeen ? new Date(user.lastSeen) : undefined,
+                    }));
+                    setUsers(transformedUsers);
                 }
             } catch (error) {
                 console.error("Failed to fetch users:", error);
@@ -46,6 +65,26 @@ export function ChatSidebar({ selectedUserId, onSelectUser }: ChatSidebarProps) 
 
         fetchUsers();
     }, []);
+
+    // Listen for onlineUsers updates from socket
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleOnlineUsers = (onlineUserIds: string[]) => {
+            setUsers((prevUsers) =>
+                prevUsers.map((user) => ({
+                    ...user,
+                    online: onlineUserIds.includes(user.id),
+                }))
+            );
+        };
+
+        socket.on("onlineUsers", handleOnlineUsers);
+
+        return () => {
+            socket.off("onlineUsers", handleOnlineUsers);
+        };
+    }, [socket]);
 
     const filteredUsers = useMemo(() => {
         const query = searchQuery.toLowerCase().trim();
@@ -64,9 +103,13 @@ export function ChatSidebar({ selectedUserId, onSelectUser }: ChatSidebarProps) 
         return filtered;
     }, [users, searchQuery, activeFilter]);
 
+    const handleUserSelect = (user: User) => {
+        onSelectUser(user);
+    };
+
     return (
         <>
-            <Sidebar collapsible="none" className="border-r">
+            <Sidebar collapsible="offcanvas" className="border-r">
                 <SidebarHeader className="border-b p-3 space-y-3">
                     {/* Hamburger Menu and Title */}
                     <div className="flex items-center gap-2">
@@ -119,7 +162,7 @@ export function ChatSidebar({ selectedUserId, onSelectUser }: ChatSidebarProps) 
                                     <UserListItem
                                         user={user}
                                         isActive={selectedUserId === user.id}
-                                        onClick={() => onSelectUser(user)}
+                                        onClick={() => handleUserSelect(user)}
                                     />
                                 </SidebarMenuItem>
                             ))
