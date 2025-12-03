@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { pusherServer } from "@/lib/pusher";
 
 export async function GET(req: Request) {
     const session = await auth.api.getSession({
@@ -102,6 +103,17 @@ export async function POST(req: Request) {
             data: {
                 lastMessageAt: new Date()
             }
+        });
+
+        // Broadcast the new message via Pusher
+        await pusherServer.trigger(`chat-${chatId}`, "message:new", {
+            id: message.id,
+            content: message.content,
+            sentAt: message.sentAt,
+            isEdited: message.isEdited,
+            editedAt: message.editedAt,
+            senderId: message.senderId,
+            sender: message.sender,
         });
 
         return NextResponse.json(message);

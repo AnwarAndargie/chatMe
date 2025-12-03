@@ -12,7 +12,9 @@ import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { MessageSquare, Info, Loader2 } from "lucide-react";
 import type { User } from "@/lib/mock-users";
-import { useSocket } from "@/components/providers/socket-provider";
+import { usePusher } from "@/components/providers/pusher-provider";
+import type PusherClient from "pusher-js";
+import type { Channel, PresenceChannel } from "pusher-js";
 
 export function ChatInterface() {
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -23,7 +25,8 @@ export function ChatInterface() {
     const [userInfoSheetOpen, setUserInfoSheetOpen] = useState(false);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const { socket, isConnected } = useSocket();
+    const { pusher } = usePusher();
+    const [channel, setChannel] = useState<Channel | null>(null);
 
 
     // Scroll to bottom when messages change
@@ -43,10 +46,14 @@ export function ChatInterface() {
     }, [messages]);
 
 
+    // Subscribe to Pusher channel for the current chat
     useEffect(() => {
-        if (!socket) return;
+        if (!pusher || !currentChatId) return;
 
-        socket.on("receive-message", (message: any) => {
+        const chatChannel: Channel = (pusher as PusherClient).subscribe(`chat-${currentChatId}`);
+        setChannel(chatChannel);
+
+        const handleNewMessage = (message: any) => {
             const newMessage: Message = {
                 id: message.id,
                 content: message.content,
@@ -60,9 +67,9 @@ export function ChatInterface() {
                 editedAt: message.editedAt ? new Date(message.editedAt) : undefined,
             };
             setMessages((prev) => [...prev, newMessage]);
-        });
+        };
 
-        socket.on("message-edited", (data: any) => {
+        const handleMessageEdited = (data: any) => {
             setMessages((prev) =>
                 prev.map((msg) =>
                     msg.id === data.messageId
@@ -75,39 +82,72 @@ export function ChatInterface() {
                         : msg
                 )
             );
-        });
+        };
 
-        socket.on("message-deleted", (data: any) => {
+        const handleMessageDeleted = (data: any) => {
             setMessages((prev) => prev.filter((msg) => msg.id !== data.messageId));
-        });
+        };
+
+        chatChannel.bind("message:new", handleNewMessage);
+        chatChannel.bind("message:edited", handleMessageEdited);
+        chatChannel.bind("message:deleted", handleMessageDeleted);
 
         return () => {
-            socket.off("receive-message");
-            socket.off("message-edited");
-            socket.off("message-deleted");
+            chatChannel.unbind("message:new", handleNewMessage);
+            chatChannel.unbind("message:edited", handleMessageEdited);
+            chatChannel.unbind("message:deleted", handleMessageDeleted);
+            (pusher as PusherClient).unsubscribe(`chat-${currentChatId}`);
+            setChannel(null);
         };
-    }, [socket, currentUserId]);
+    }, [pusher, currentChatId, currentUserId]);
 
-    // Listen for onlineUsers updates from socket to update selected user status
+    // Keep selected user's online status (and lastSeen) in sync via Pusher presence channel
     useEffect(() => {
-        if (!socket || !selectedUser) return;
+        if (!pusher || !selectedUser) {
+            if (!pusher) {
+                console.warn("[ChatInterface] No Pusher client for presence channel.");
+            }
+            return;
+        }
 
-        const handleOnlineUsers = (onlineUserIds: string[]) => {
+        const presenceChannel = (pusher as PusherClient).subscribe("presence-users") as PresenceChannel;
+        console.log("[ChatInterface] Subscribed to presence-users channel for selected user presence.");
+
+        const updateFromMembers = () => {
+            const onlineUserIds: string[] = [];
+            (presenceChannel.members as any).each((member: any) => {
+                if (member?.id) {
+                    onlineUserIds.push(member.id as string);
+                }
+            });
+
+            console.log("[ChatInterface] Presence members online IDs:", onlineUserIds);
+
             setSelectedUser((prev) => {
                 if (!prev) return prev;
+                const isOnline = onlineUserIds.includes(prev.id);
+                const wasOnline = prev.online;
                 return {
                     ...prev,
-                    online: onlineUserIds.includes(prev.id),
+                    online: isOnline,
+                    // If this user just went offline, update lastSeen locally
+                    lastSeen: !isOnline && wasOnline ? new Date() : prev.lastSeen,
                 };
             });
         };
 
-        socket.on("onlineUsers", handleOnlineUsers);
+        presenceChannel.bind("pusher:subscription_succeeded", updateFromMembers);
+        presenceChannel.bind("pusher:member_added", updateFromMembers);
+        presenceChannel.bind("pusher:member_removed", updateFromMembers);
 
         return () => {
-            socket.off("onlineUsers", handleOnlineUsers);
+            console.log("[ChatInterface] Cleaning up presence-users bindings for selected user.");
+            presenceChannel.unbind("pusher:subscription_succeeded", updateFromMembers);
+            presenceChannel.unbind("pusher:member_added", updateFromMembers);
+            presenceChannel.unbind("pusher:member_removed", updateFromMembers);
+            // Do not unsubscribe here to avoid affecting other components using the same channel
         };
-    }, [socket, selectedUser]);
+    }, [pusher, selectedUser]);
 
     const handleSelectUser = async (user: User) => {
         setSelectedUser(user);
@@ -128,9 +168,6 @@ export function ChatInterface() {
                 const otherUserId = user.id;
                 const myUserId = chat.participantIds.find((id: string) => id !== otherUserId);
                 setCurrentUserId(myUserId);
-                if (socket) {
-                    socket.emit("join-room", chat.id);
-                }
 
                 const messagesResponse = await fetch(`/api/messages?chatId=${chat.id}`);
                 if (messagesResponse.ok) {
@@ -168,14 +205,8 @@ export function ChatInterface() {
             });
 
             if (response.ok) {
-                const savedMessage = await response.json();
-
-                if (socket) {
-                    socket.emit("send-message", {
-                        ...savedMessage,
-                        sessionId: currentChatId,
-                    });
-                }
+                // Pusher event will be triggered from the server API and received via subscription
+                await response.json();
             }
         } catch (error) {
             console.error("Failed to send message:", error);
@@ -193,17 +224,8 @@ export function ChatInterface() {
             });
 
             if (response.ok) {
-                const updatedMessage = await response.json();
-
-                if (socket) {
-                    socket.emit("edit-message", {
-                        sessionId: currentChatId,
-                        messageId: updatedMessage.id,
-                        content: updatedMessage.content,
-                        isEdited: updatedMessage.isEdited,
-                        editedAt: updatedMessage.editedAt,
-                    });
-                }
+                // Pusher event will be triggered from the server API and received via subscription
+                await response.json();
             }
         } catch (error) {
             console.error("Failed to edit message:", error);
@@ -219,12 +241,8 @@ export function ChatInterface() {
             });
 
             if (response.ok) {
-                if (socket) {
-                    socket.emit("delete-message", {
-                        sessionId: currentChatId,
-                        messageId,
-                    });
-                }
+                // Pusher event will be triggered from the server API and received via subscription
+                await response.json();
             }
         } catch (error) {
             console.error("Failed to delete message:", error);

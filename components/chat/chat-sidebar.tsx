@@ -17,7 +17,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useSocket } from "@/components/providers/socket-provider";
+import { usePusher } from "@/components/providers/pusher-provider";
+import type PusherClient from "pusher-js";
+import type { PresenceChannel } from "pusher-js";
 
 interface ChatSidebarProps {
     selectedUserId?: string;
@@ -28,8 +30,8 @@ export function ChatSidebar({ selectedUserId, onSelectUser }: ChatSidebarProps) 
     const [searchQuery, setSearchQuery] = useState("");
     const [profileSheetOpen, setProfileSheetOpen] = useState(false);
     const [activeFilter, setActiveFilter] = useState<ConversationFilter>("all");
-    const { socket } = useSocket();
     const { isMobile, setOpenMobile } = useSidebar();
+    const { pusher } = usePusher();
 
     // Close sidebar on mobile when a user is selected
     useEffect(() => {
@@ -44,21 +46,26 @@ export function ChatSidebar({ selectedUserId, onSelectUser }: ChatSidebarProps) 
     useEffect(() => {
         const fetchUsers = async () => {
             try {
+                console.log("[Sidebar] Fetching users for sidebar...");
                 const response = await fetch("/api/users");
                 if (response.ok) {
                     const data = await response.json();
-                    // Transform API response to match User type
+                    // Transform API response to match User type.
+                    // We ignore the DB isOnline flag and rely solely on Pusher presence.
                     const transformedUsers: User[] = data.map((user: any) => ({
                         id: user.id,
                         name: user.name,
                         avatar: user.image || undefined,
-                        online: user.isOnline || false,
+                        online: false,
                         lastSeen: user.lastSeen ? new Date(user.lastSeen) : undefined,
                     }));
                     setUsers(transformedUsers);
+                    console.log("[Sidebar] Users loaded:", transformedUsers);
+                } else {
+                    console.error("[Sidebar] Failed to fetch users. Status:", response.status);
                 }
             } catch (error) {
-                console.error("Failed to fetch users:", error);
+                console.error("[Sidebar] Failed to fetch users:", error);
             } finally {
                 setIsLoading(false);
             }
@@ -67,25 +74,53 @@ export function ChatSidebar({ selectedUserId, onSelectUser }: ChatSidebarProps) 
         fetchUsers();
     }, []);
 
-    // Listen for onlineUsers updates from socket
+    // Keep online status (and lastSeen) in sync via Pusher presence channel
     useEffect(() => {
-        if (!socket) return;
+        if (!pusher) {
+            console.warn("[Sidebar] No Pusher client available for presence channel.");
+            return;
+        }
 
-        const handleOnlineUsers = (onlineUserIds: string[]) => {
+        const presenceChannel = (pusher as PusherClient).subscribe("presence-users") as PresenceChannel;
+        console.log("[Sidebar] Subscribed to presence-users channel.");
+
+        const updateOnlineFromMembers = () => {
+            const onlineUserIds: string[] = [];
+            // Use official presence members API
+            (presenceChannel.members as any).each((member: any) => {
+                if (member?.id) {
+                    onlineUserIds.push(member.id as string);
+                }
+            });
+
+            console.log("[Sidebar] Presence members online IDs:", onlineUserIds);
+
             setUsers((prevUsers) =>
-                prevUsers.map((user) => ({
-                    ...user,
-                    online: onlineUserIds.includes(user.id),
-                }))
+                prevUsers.map((user) => {
+                    const isOnline = onlineUserIds.includes(user.id);
+                    const wasOnline = user.online;
+                    return {
+                        ...user,
+                        online: isOnline,
+                        // If user just went offline, update lastSeen locally
+                        lastSeen: !isOnline && wasOnline ? new Date() : user.lastSeen,
+                    };
+                }),
             );
         };
 
-        socket.on("onlineUsers", handleOnlineUsers);
+        presenceChannel.bind("pusher:subscription_succeeded", updateOnlineFromMembers);
+        presenceChannel.bind("pusher:member_added", updateOnlineFromMembers);
+        presenceChannel.bind("pusher:member_removed", updateOnlineFromMembers);
 
         return () => {
-            socket.off("onlineUsers", handleOnlineUsers);
+            console.log("[Sidebar] Cleaning up presence-users bindings.");
+            presenceChannel.unbind("pusher:subscription_succeeded", updateOnlineFromMembers);
+            presenceChannel.unbind("pusher:member_added", updateOnlineFromMembers);
+            presenceChannel.unbind("pusher:member_removed", updateOnlineFromMembers);
+            // Do not unsubscribe here to avoid affecting other components using the same channel
         };
-    }, [socket]);
+    }, [pusher]);
 
     const filteredUsers = useMemo(() => {
         const query = searchQuery.toLowerCase().trim();

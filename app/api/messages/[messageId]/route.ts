@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { pusherServer } from "@/lib/pusher";
 
 export async function PATCH(
     req: Request,
@@ -59,6 +60,14 @@ export async function PATCH(
             }
         });
 
+        // Broadcast the edited message via Pusher
+        await pusherServer.trigger(`chat-${message.sessionId}`, "message:edited", {
+            messageId: updatedMessage.id,
+            content: updatedMessage.content,
+            isEdited: updatedMessage.isEdited,
+            editedAt: updatedMessage.editedAt,
+        });
+
         return NextResponse.json(updatedMessage);
     } catch (error) {
         console.log("[MESSAGE_PATCH]", error);
@@ -101,6 +110,11 @@ export async function DELETE(
                 isDeleted: true,
                 deletedAt: new Date()
             }
+        });
+
+        // Broadcast the deletion via Pusher
+        await pusherServer.trigger(`chat-${message.sessionId}`, "message:deleted", {
+            messageId,
         });
 
         return NextResponse.json({ success: true });
