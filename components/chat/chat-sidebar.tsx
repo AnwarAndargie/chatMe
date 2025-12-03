@@ -132,7 +132,7 @@ export function ChatSidebar({ selectedUserId, onSelectUser }: ChatSidebarProps) 
             );
         }
 
-        if (activeFilter === "unread") {
+        if (activeFilter === "online") {
             filtered = filtered.filter((user) => user.online);
         }
 
@@ -203,8 +203,8 @@ export function ChatSidebar({ selectedUserId, onSelectUser }: ChatSidebarProps) 
                                 <p className="text-sm text-muted-foreground">
                                     {searchQuery
                                         ? "No users found"
-                                        : activeFilter === "unread"
-                                            ? "No unread conversations"
+                                        : activeFilter === "online"
+                                            ? "No online users"
                                             : "No users available"}
                                 </p>
                             </div>

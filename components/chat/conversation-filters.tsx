@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 
-export type ConversationFilter = "all" | "unread";
+export type ConversationFilter = "all" | "online";
 
 interface ConversationFiltersProps {
     activeFilter: ConversationFilter;
@@ -16,8 +16,8 @@ export function ConversationFilters({
     unreadCount = 0,
 }: ConversationFiltersProps) {
     const filters: { value: ConversationFilter; label: string; count?: number }[] = [
-        { value: "all", label: "All Chats" },
-        { value: "unread", label: "Unread", count: unreadCount },
+        { value: "all", label: "All" },
+        { value: "online", label: "Online" },
     ];
 
     return (

@@ -25,8 +25,7 @@ export const createPusherClient = () => {
   return new PusherClient(key, {
     cluster,
     // Used for private/presence channels authentication
-    authEndpoint: "/api/pusher/auth",
-    withCredentials: true,
+    authEndpoint: "/api/pusher/auth"
   });
 };
 

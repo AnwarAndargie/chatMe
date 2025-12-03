@@ -5,7 +5,6 @@ import { ChatMessage, type Message } from "@/components/chat/chat-message";
 import { ChatInput } from "@/components/chat/chat-input";
 import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { UserInfoSheet } from "@/components/chat/user-info-sheet";
-import { ThemeToggle } from "@/components/chat/theme-toggle";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -298,7 +297,6 @@ export function ChatInterface() {
 
                                     {/* Action Buttons */}
                                     <div className="flex items-center gap-1">
-                                        <ThemeToggle />
                                         <Button
                                             variant="ghost"
                                             size="icon"
@@ -365,7 +363,6 @@ export function ChatInterface() {
                                         <SidebarTrigger />
                                         <h2 className="text-lg font-semibold">Chats</h2>
                                     </div>
-                                    <ThemeToggle />
                                 </div>
                             </div>
                             <div className="flex-1 flex flex-col items-center justify-center text-center px-4">

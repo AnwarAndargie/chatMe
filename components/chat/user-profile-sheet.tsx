@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ThemeToggle } from "@/components/chat/theme-toggle";
 
 interface UserProfileSheetProps {
     open: boolean;
@@ -211,16 +212,13 @@ export function UserProfileSheet({ open, onOpenChange }: UserProfileSheetProps) 
                                 Edit Profile
                             </Button>
 
-                            <Button
-                                variant="outline"
-                                className="w-full justify-start"
-                                onClick={() => {
-                                    console.log("Settings");
-                                }}
-                            >
-                                <Settings className="h-4 w-4 mr-2" />
-                                Settings
-                            </Button>
+                            <div className="flex items-center justify-between w-full px-3 py-2 border rounded-md">
+                                <div className="flex items-center gap-2">
+                                    <Settings className="h-4 w-4" />
+                                    <span className="text-sm font-medium">Theme</span>
+                                </div>
+                                <ThemeToggle />
+                            </div>
 
                             <Button
                                 variant="outline"
