@@ -30,10 +30,19 @@ export async function GET() {
                     }
                 },
                 messages: {
+                    where: {
+                        isDeleted: false
+                    },
                     orderBy: {
                         sentAt: 'desc'
                     },
-                    take: 1
+                    take: 1,
+                    select: {
+                        id: true,
+                        content: true,
+                        sentAt: true,
+                        senderId: true
+                    }
                 }
             },
             orderBy: {
@@ -41,7 +50,32 @@ export async function GET() {
             }
         });
 
-        return NextResponse.json(chats);
+        const chatsWithUnread = await Promise.all(
+            chats.map(async (chat) => {
+                const unreadCount = await prisma.message.count({
+                    where: {
+                        sessionId: chat.id,
+                        senderId: {
+                            not: session.user.id
+                        },
+                        isRead: false,
+                        isDeleted: false
+                    }
+                });
+
+                const otherParticipant = chat.participants.find((participant) => participant.id !== session.user.id) ?? chat.participants[0];
+
+                return {
+                    id: chat.id,
+                    lastMessageAt: chat.lastMessageAt,
+                    unreadCount,
+                    participant: otherParticipant,
+                    lastMessage: chat.messages[0] ?? null
+                };
+            })
+        );
+
+        return NextResponse.json(chatsWithUnread);
     } catch (error) {
         console.log("[CHATS_GET]", error);
         return new NextResponse("Internal Error", { status: 500 });
