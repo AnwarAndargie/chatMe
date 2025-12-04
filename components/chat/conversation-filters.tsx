@@ -13,6 +13,7 @@ interface ConversationFiltersProps {
 export function ConversationFilters({
     activeFilter,
     onFilterChange,
+    unreadCount,
 }: ConversationFiltersProps) {
     const filters: { value: ConversationFilter; label: string; count?: number }[] = [
         { value: "all", label: "All", count: unreadCount },

@@ -19,6 +19,7 @@ interface NewMessageEvent {
     id: string;
     content: string;
     sender: {
+        id: string;
         name: string;
         image?: string | null;
     };
@@ -84,7 +85,7 @@ export function ChatInterface() {
                 content: message.content,
                 sender: {
                     name: message.sender.name,
-                    avatar: message.sender.image,
+                    avatar: message.sender.image ?? undefined,
                 },
                 timestamp: new Date(message.sentAt),
                 isCurrentUser: message.senderId === currentUserId,
@@ -206,7 +207,7 @@ export function ChatInterface() {
                         content: msg.content,
                         sender: {
                             name: msg.sender.name,
-                            avatar: msg.sender.image,
+                            avatar: msg.sender.image ?? undefined,
                         },
                         timestamp: new Date(msg.sentAt),
                         isCurrentUser: msg.sender.id === myUserId,
