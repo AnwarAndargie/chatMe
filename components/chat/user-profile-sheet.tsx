@@ -140,8 +140,12 @@ export function UserProfileSheet({ open, onOpenChange }: UserProfileSheetProps) 
                                     // Refresh session data
                                     router.refresh();
                                     setIsEditing(false);
-                                } catch (err: any) {
-                                    setError(err.message ?? "Failed to update profile");
+                                } catch (err: unknown) {
+                                    if (err instanceof Error) {
+                                        setError(err.message);
+                                    } else {
+                                        setError("Failed to update profile");
+                                    }
                                 } finally {
                                     setIsSaving(false);
                                 }

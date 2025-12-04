@@ -15,32 +15,32 @@ const PusherContext = createContext<PusherContextType>({
 export const usePusher = () => useContext(PusherContext);
 
 export const PusherProvider = ({ children }: { children: React.ReactNode }) => {
-  const [pusher, setPusher] = useState<PusherClient | null>(null);
+  const [pusher] = useState<PusherClient | null>(() => {
+    console.log("[Pusher] Initializing client...");
+    return createPusherClient();
+  });
 
   useEffect(() => {
-    console.log("[Pusher] Initializing client...");
-    const instance = createPusherClient();
-
-    if (!instance) {
+    if (!pusher) {
       console.warn("[Pusher] Client not created. Check NEXT_PUBLIC_PUSHER_KEY / CLUSTER.");
-    } else {
-      console.log("[Pusher] Client created. Attempting to connect...");
-      instance.connection.bind("state_change", (states: any) => {
-        console.log("[Pusher] Connection state change:", states);
-      });
-
-      instance.connection.bind("error", (err: any) => {
-        console.error("[Pusher] Connection error:", err);
-      });
+      return;
     }
 
-    setPusher(instance);
+    console.log("[Pusher] Client created. Attempting to connect...");
+
+    pusher.connection.bind("state_change", (states: { previous: string; current: string }) => {
+      console.log("[Pusher] Connection state change:", states);
+    });
+
+    pusher.connection.bind("error", (err: unknown) => {
+      console.error("[Pusher] Connection error:", err);
+    });
 
     return () => {
       console.log("[Pusher] Disconnecting client...");
-      instance?.disconnect();
+      pusher.disconnect();
     };
-  }, []);
+  }, [pusher]);
 
   return (
     <PusherContext.Provider value={{ pusher }}>

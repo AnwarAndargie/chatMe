@@ -13,20 +13,13 @@ import {
 type Theme = "light" | "dark" | "system";
 
 export function ThemeToggle() {
-    const [theme, setTheme] = useState<Theme>("light");
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        setMounted(true);
-        // Get theme from localStorage or default to light
-        const savedTheme = localStorage.getItem("theme") as Theme | null;
-        if (savedTheme) {
-            setTheme(savedTheme);
-            applyTheme(savedTheme);
-        } else {
-            applyTheme("light");
+    const [theme, setTheme] = useState<Theme>(() => {
+        if (typeof window === "undefined") {
+            return "light";
         }
-    }, []);
+        const savedTheme = localStorage.getItem("theme") as Theme | null;
+        return savedTheme ?? "light";
+    });
 
     const applyTheme = (newTheme: Theme) => {
         const root = document.documentElement;
@@ -43,20 +36,19 @@ export function ThemeToggle() {
         }
     };
 
+    useEffect(() => {
+        if (typeof window === "undefined") {
+            return;
+        }
+        applyTheme(theme);
+    }, [theme]);
+
     const handleThemeChange = (newTheme: Theme) => {
         setTheme(newTheme);
-        localStorage.setItem("theme", newTheme);
-        applyTheme(newTheme);
+        if (typeof window !== "undefined") {
+            localStorage.setItem("theme", newTheme);
+        }
     };
-
-    // Prevent hydration mismatch
-    if (!mounted) {
-        return (
-            <Button variant="ghost" size="icon" className="h-9 w-9">
-                <Sun className="h-5 w-5" />
-            </Button>
-        );
-    }
 
     const getIcon = () => {
         if (theme === "light") return <Sun className="h-5 w-5" />;

@@ -15,6 +15,34 @@ import { usePusher } from "@/components/providers/pusher-provider";
 import type PusherClient from "pusher-js";
 import type { Channel, PresenceChannel } from "pusher-js";
 
+interface NewMessageEvent {
+    id: string;
+    content: string;
+    sender: {
+        name: string;
+        image?: string | null;
+    };
+    sentAt: string;
+    senderId: string;
+    isEdited?: boolean;
+    editedAt?: string | null;
+}
+
+interface MessageEditedEvent {
+    messageId: string;
+    content: string;
+    isEdited?: boolean;
+    editedAt?: string | null;
+}
+
+interface MessageDeletedEvent {
+    messageId: string;
+}
+
+interface PresenceMember {
+    id: string;
+}
+
 export function ChatInterface() {
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [currentChatId, setCurrentChatId] = useState<string | null>(null);
@@ -25,7 +53,6 @@ export function ChatInterface() {
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const { pusher } = usePusher();
-    const [channel, setChannel] = useState<Channel | null>(null);
 
 
     // Scroll to bottom when messages change
@@ -50,9 +77,8 @@ export function ChatInterface() {
         if (!pusher || !currentChatId) return;
 
         const chatChannel: Channel = (pusher as PusherClient).subscribe(`chat-${currentChatId}`);
-        setChannel(chatChannel);
 
-        const handleNewMessage = (message: any) => {
+        const handleNewMessage = (message: NewMessageEvent) => {
             const newMessage: Message = {
                 id: message.id,
                 content: message.content,
@@ -68,7 +94,7 @@ export function ChatInterface() {
             setMessages((prev) => [...prev, newMessage]);
         };
 
-        const handleMessageEdited = (data: any) => {
+        const handleMessageEdited = (data: MessageEditedEvent) => {
             setMessages((prev) =>
                 prev.map((msg) =>
                     msg.id === data.messageId
@@ -83,7 +109,7 @@ export function ChatInterface() {
             );
         };
 
-        const handleMessageDeleted = (data: any) => {
+        const handleMessageDeleted = (data: MessageDeletedEvent) => {
             setMessages((prev) => prev.filter((msg) => msg.id !== data.messageId));
         };
 
@@ -96,7 +122,6 @@ export function ChatInterface() {
             chatChannel.unbind("message:edited", handleMessageEdited);
             chatChannel.unbind("message:deleted", handleMessageDeleted);
             (pusher as PusherClient).unsubscribe(`chat-${currentChatId}`);
-            setChannel(null);
         };
     }, [pusher, currentChatId, currentUserId]);
 
@@ -114,9 +139,14 @@ export function ChatInterface() {
 
         const updateFromMembers = () => {
             const onlineUserIds: string[] = [];
-            (presenceChannel.members as any).each((member: any) => {
+
+            const members = presenceChannel.members as unknown as {
+                each: (callback: (member: PresenceMember) => void) => void;
+            };
+
+            members.each((member) => {
                 if (member?.id) {
-                    onlineUserIds.push(member.id as string);
+                    onlineUserIds.push(member.id);
                 }
             });
 
@@ -165,13 +195,13 @@ export function ChatInterface() {
                 setCurrentChatId(chat.id);
 
                 const otherUserId = user.id;
-                const myUserId = chat.participantIds.find((id: string) => id !== otherUserId);
+                const myUserId = chat.participantIds.find((id: string) => id !== otherUserId) ?? null;
                 setCurrentUserId(myUserId);
 
                 const messagesResponse = await fetch(`/api/messages?chatId=${chat.id}`);
                 if (messagesResponse.ok) {
-                    const apiMessages = await messagesResponse.json();
-                    const transformedMessages: Message[] = apiMessages.map((msg: any) => ({
+                    const apiMessages: NewMessageEvent[] = await messagesResponse.json();
+                    const transformedMessages: Message[] = apiMessages.map((msg) => ({
                         id: msg.id,
                         content: msg.content,
                         sender: {

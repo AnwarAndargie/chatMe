@@ -21,6 +21,17 @@ import { usePusher } from "@/components/providers/pusher-provider";
 import type PusherClient from "pusher-js";
 import type { PresenceChannel } from "pusher-js";
 
+interface ApiUser {
+    id: string;
+    name: string;
+    image?: string | null;
+    lastSeen?: string | null;
+}
+
+interface PresenceMember {
+    id: string;
+}
+
 interface ChatSidebarProps {
     selectedUserId?: string;
     onSelectUser: (user: User) => void;
@@ -49,10 +60,10 @@ export function ChatSidebar({ selectedUserId, onSelectUser }: ChatSidebarProps) 
                 console.log("[Sidebar] Fetching users for sidebar...");
                 const response = await fetch("/api/users");
                 if (response.ok) {
-                    const data = await response.json();
+                    const data: ApiUser[] = await response.json();
                     // Transform API response to match User type.
                     // We ignore the DB isOnline flag and rely solely on Pusher presence.
-                    const transformedUsers: User[] = data.map((user: any) => ({
+                    const transformedUsers: User[] = data.map((user) => ({
                         id: user.id,
                         name: user.name,
                         avatar: user.image || undefined,
@@ -86,10 +97,14 @@ export function ChatSidebar({ selectedUserId, onSelectUser }: ChatSidebarProps) 
 
         const updateOnlineFromMembers = () => {
             const onlineUserIds: string[] = [];
-            // Use official presence members API
-            (presenceChannel.members as any).each((member: any) => {
+
+            const members = presenceChannel.members as unknown as {
+                each: (callback: (member: PresenceMember) => void) => void;
+            };
+
+            members.each((member) => {
                 if (member?.id) {
-                    onlineUserIds.push(member.id as string);
+                    onlineUserIds.push(member.id);
                 }
             });
 
