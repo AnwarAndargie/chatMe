@@ -499,7 +499,6 @@ export function ChatSidebar({ selectedUserId, onSelectUser }: ChatSidebarProps) 
                                         onClick={() => handleUserSelect(entry.user)}
                                         unreadCount={entry.unreadCount}
                                         lastMessage={entry.lastMessage ?? undefined}
-                                        lastMessageAt={entry.lastMessageAt ?? undefined}
                                     />
                                 </SidebarMenuItem>
                             ))
